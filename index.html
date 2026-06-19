@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Электронная очередь — ВКУ им. Аманжолова</title>
+<script src="staff-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.9.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.9.1/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  --blue:#3056D3; --blue-dark:#1e3fa8; --blue-light:#6b8aff; --blue-pale:#eef1fb;
+  --gold:#f5a623; --gold-light:#fff3d6;
+  --text:#0f1f4b; --text-2:#5a6a8a; --text-3:#a0aec0;
+  --border:rgba(48,86,211,.12); --white:#ffffff; --bg:#f0f4ff;
+  --radius:20px; --shadow:0 20px 60px rgba(48,86,211,.15);
+  --shadow-sm:0 4px 20px rgba(48,86,211,.10);
+  --green:#059669;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;top:-120px;left:-120px;width:500px;height:500px;background:radial-gradient(circle,rgba(48,86,211,.18) 0%,transparent 70%);pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;bottom:-100px;right:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(107,138,255,.15) 0%,transparent 70%);pointer-events:none;z-index:0}
+
+/* ── HEADER ── */
+.header{position:relative;background:linear-gradient(135deg,#1a2e8f 0%,#3056D3 50%,#4f75ff 100%);overflow:hidden;z-index:10}
+.header::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none}
+.header::after{content:'';position:absolute;bottom:-40px;left:30%;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.05);pointer-events:none}
+.header-inner{position:relative;display:flex;align-items:center;gap:14px;padding:20px 20px 16px;z-index:2}
+.logo-box{flex-shrink:0;width:72px;height:72px;background:rgba(255,255,255,.15);backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,.25);border-radius:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.header-titles .uni-name{font-size:17px;font-weight:800;color:white;line-height:1.2;letter-spacing:-.2px}
+.header-titles .uni-sub{font-size:15px;color:rgba(255,255,255,.65);margin-top:3px;line-height:1.35}
+.lang-bar{position:relative;z-index:2;display:flex;justify-content:flex-end;padding:0 20px 18px}
+.lang-switcher{display:flex;background:rgba(0,0,0,.2);border-radius:12px;padding:3px;gap:2px}
+.lang-btn{background:transparent;border:none;color:rgba(255,255,255,.55);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.6px;padding:6px 14px;border-radius:9px;cursor:pointer;transition:all .2s cubic-bezier(.34,1.3,.64,1);line-height:1}
+.lang-btn:hover{color:rgba(255,255,255,.85)}
+.lang-btn.active{background:white;color:var(--blue);box-shadow:0 2px 8px rgba(0,0,0,.18);transform:scale(1.04)}
+.step-bar{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;gap:0;padding:0 20px 20px}
+.step-dot{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:rgba(255,255,255,.6);transition:all .3s;position:relative}
+.step-dot.done{background:rgba(255,255,255,.9);border-color:white;color:var(--blue)}
+.step-dot.active{background:white;border-color:white;color:var(--blue);box-shadow:0 0 0 4px rgba(255,255,255,.2)}
+.step-line{flex:1;height:2px;background:rgba(255,255,255,.2);max-width:60px;transition:background .3s}
+.step-line.done{background:rgba(255,255,255,.7)}
+.step-label{position:absolute;bottom:-18px;white-space:nowrap;font-size:9px;font-weight:600;color:rgba(255,255,255,.55);letter-spacing:.3px}
+.step-dot.active .step-label,.step-dot.done .step-label{color:rgba(255,255,255,.85)}
+
+/* ── MAIN ── */
+.main{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:28px 16px 60px}
+.section-title{font-size:22px;font-weight:900;color:var(--text);letter-spacing:-.5px;margin-bottom:6px}
+.section-sub{font-size:13px;color:var(--text-2);margin-bottom:22px;line-height:1.5}
+
+/* ── LEVEL GRID (2×3 + творческий) ── */
+.level-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.level-card{background:white;border:2px solid transparent;border-radius:22px;padding:22px 14px 20px;text-align:center;cursor:pointer;transition:all .22s cubic-bezier(.34,1.56,.64,1);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;align-items:center;gap:12px;position:relative;overflow:hidden}
+.level-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--blue-light));opacity:0;transition:opacity .2s}
+.level-card:hover{border-color:var(--blue);transform:translateY(-4px);box-shadow:0 16px 40px rgba(48,86,211,.2)}
+.level-card:hover::before{opacity:1}
+.level-card:active{transform:translateY(-1px) scale(.98)}
+/* Творческий — полная ширина */
+.level-card.full{grid-column:1/-1}
+.lc-icon{width:60px;height:60px;border-radius:18px;display:flex;align-items:center;justify-content:center;transition:transform .22s}
+.level-card:hover .lc-icon{transform:scale(1.08)}
+.lc-icon svg{width:28px;height:28px}
+.lc-icon.blue{background:linear-gradient(135deg,#eef1fb,#dde5ff)}.lc-icon.blue svg{color:var(--blue)}
+.lc-icon.purple{background:linear-gradient(135deg,#f3eeff,#e5d5ff)}.lc-icon.purple svg{color:#7c3aed}
+.lc-icon.green{background:linear-gradient(135deg,#edfff4,#c6f6d5)}.lc-icon.green svg{color:#059669}
+.lc-icon.orange{background:linear-gradient(135deg,#fff7ed,#fed7aa)}.lc-icon.orange svg{color:#ea580c}
+.lc-icon.rose{background:linear-gradient(135deg,#fff0f6,#ffd6e7)}.lc-icon.rose svg{color:#e11d74}
+.lc-icon.teal{background:linear-gradient(135deg,#f0fffe,#c3fae8)}.lc-icon.teal svg{color:#0d9488}
+.lc-label{font-size:14px;font-weight:800;color:var(--text);line-height:1.2;letter-spacing:-.2px}
+.lc-sub{font-size:11px;color:var(--text-3);font-weight:500;line-height:1.3}
+.lc-arrow{width:28px;height:28px;background:var(--blue-pale);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-top:2px;transition:background .2s}
+.lc-arrow svg{width:12px;height:12px;color:var(--blue)}
+.level-card:hover .lc-arrow{background:var(--blue)}
+.level-card:hover .lc-arrow svg{color:white}
+
+/* ── SUBJECT LIST ── */
+.subj-list{display:flex;flex-direction:column;gap:10px}
+.subj-item{background:white;border:2px solid transparent;border-radius:18px;padding:16px 16px;cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:14px;box-shadow:0 2px 12px rgba(48,86,211,.07)}
+.subj-item:hover{border-color:var(--blue);box-shadow:0 8px 24px rgba(48,86,211,.15);transform:translateX(4px)}
+.subj-item:active{transform:translateX(2px) scale(.99)}
+.si-dot{flex-shrink:0;width:44px;height:44px;background:var(--blue-pale);border-radius:13px;display:flex;align-items:center;justify-content:center}
+.si-dot svg{width:20px;height:20px;color:var(--blue)}
+.si-body{flex:1;min-width:0}
+.si-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.35}
+.si-hint{font-size:11px;color:var(--text-3);margin-top:3px}
+.si-chevron{flex-shrink:0;color:var(--text-3);width:20px;height:20px;transition:color .15s}
+.subj-item:hover .si-chevron{color:var(--blue)}
+
+/* ── BREADCRUMB ── */
+.breadcrumb{display:flex;align-items:center;gap:6px;margin-bottom:20px;font-size:12px;font-weight:500;color:var(--text-3)}
+.bc-link{color:var(--blue);cursor:pointer;font-weight:600}
+.bc-link:hover{text-decoration:underline}
+.bc-sep{color:#ccd3ea}
+
+/* ── TICKET ── */
+.ticket{background:white;border-radius:28px;overflow:hidden;box-shadow:0 24px 64px rgba(48,86,211,.18)}
+.ticket-top{background:linear-gradient(135deg,#1a2e8f 0%,#3056D3 55%,#5b7bff 100%);padding:28px 24px 32px;text-align:center;position:relative;overflow:hidden}
+.ticket-top::before{content:'';position:absolute;top:-50px;right:-50px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.08)}
+.ticket-top::after{content:'';position:absolute;bottom:-40px;left:-30px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.05)}
+.tt-logo{position:relative;z-index:1;width:52px;height:52px;background:rgba(255,255,255,.18);backdrop-filter:blur(8px);border:1.5px solid rgba(255,255,255,.3);border-radius:16px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center}
+.tt-logo svg{width:28px;height:28px;color:white}
+.tt-uni{position:relative;z-index:1;font-size:11px;color:rgba(255,255,255,.7);margin-bottom:4px;font-weight:500}
+.tt-level{position:relative;z-index:1;font-size:20px;font-weight:900;color:white;letter-spacing:-.4px}
+.ticket-num-section{padding:24px 24px 0;text-align:center}
+.tn-label{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--text-3);text-transform:uppercase;margin-bottom:10px}
+.tn-number{font-size:72px;font-weight:900;color:var(--blue);line-height:1;letter-spacing:-3px}
+.tn-prefix{font-size:32px;letter-spacing:0}
+.dash-sep{border:none;border-top:2.5px dashed #e8ecf8;margin:22px 0 0}
+.ticket-info{padding:20px 20px 0;display:flex;flex-direction:column;gap:10px}
+.ti-row{display:flex;align-items:center;background:var(--bg);border-radius:14px;padding:13px 16px;gap:12px}
+.ti-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ti-icon svg{width:18px;height:18px}
+.ti-icon.blue{background:var(--blue-pale)}.ti-icon.blue svg{color:var(--blue)}
+.ti-icon.purple{background:#f3eeff}.ti-icon.purple svg{color:#7c3aed}
+.ti-icon.green{background:#edfff4}.ti-icon.green svg{color:#059669}
+.ti-icon.gold{background:var(--gold-light)}.ti-icon.gold svg{color:var(--gold)}
+.ti-body{flex:1;min-width:0}
+.ti-label{font-size:11px;color:var(--text-3);font-weight:500;margin-bottom:2px}
+.ti-val{font-size:15px;font-weight:800;color:var(--text)}
+.ti-val.big{font-size:18px;color:var(--blue)}
+.ticket-subj{margin:10px 20px 0;background:linear-gradient(135deg,#f8f9ff,#eef1fb);border:1.5px solid var(--border);border-radius:16px;padding:14px 16px}
+.tp-label{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--blue);text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.tp-label svg{width:12px;height:12px}
+.tp-name{font-size:13.5px;font-weight:700;color:var(--text);line-height:1.45}
+.ticket-notice{margin:16px 20px 0;background:var(--gold-light);border:1.5px solid #ffe08a;border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start}
+.ticket-notice svg{width:16px;height:16px;color:var(--gold);flex-shrink:0;margin-top:1px}
+.ticket-notice p{font-size:12px;color:#7a5500;line-height:1.5;font-weight:500}
+.ticket-footer{padding:16px 20px 24px}
+.qr-hint{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--bg);border:1.5px dashed #c8d0e8;border-radius:14px;padding:14px 16px}
+.qr-hint svg{width:20px;height:20px;flex-shrink:0;color:var(--text-3)}
+.qr-hint span{font-size:12px;font-weight:500;line-height:1.45;color:var(--text-2)}
+.btn-home{width:100%;padding:16px;background:linear-gradient(135deg,var(--blue) 0%,#4f75ff 100%);color:white;border:none;border-radius:16px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 8px 24px rgba(48,86,211,.35);transition:all .2s}
+.btn-home:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(48,86,211,.4)}
+.btn-home svg{width:16px;height:16px}
+
+/* ── TICKET STATUS ── */
+.ticket-status-bar{margin:0 20px 16px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:10px}
+.tsb-dot{width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.2);animation:dotPulse 1.5s ease-in-out infinite;flex-shrink:0}
+@keyframes dotPulse{0%,100%{box-shadow:0 0 0 4px rgba(34,197,94,.2)}50%{box-shadow:0 0 0 8px rgba(34,197,94,.1)}}
+.tsb-text{font-size:12.5px;font-weight:600;color:#166534;flex:1}
+.tsb-text b{color:#15803d}
+
+/* ── ANIMATIONS ── */
+.fade-in{animation:fadeIn .3s cubic-bezier(.2,.8,.4,1) both}
+.slide-up{animation:slideUp .35s cubic-bezier(.2,.8,.4,1) both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes slideUp{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:none}}
+.stagger-1{animation-delay:.05s}.stagger-2{animation-delay:.10s}.stagger-3{animation-delay:.15s}
+.stagger-4{animation-delay:.20s}.stagger-5{animation-delay:.25s}.stagger-6{animation-delay:.30s}
+
+/* confetti */
+.confetti{position:absolute;top:-10px;left:0;right:0;pointer-events:none;overflow:hidden;height:60px}
+.cf{position:absolute;width:8px;height:8px;border-radius:2px;animation:fall 1.2s ease forwards}
+@keyframes fall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(70px) rotate(360deg);opacity:0}}
+.ticket-wrap{position:relative}
+
+/* ── CALL OVERLAY ── */
+#call-overlay{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);align-items:center;justify-content:center;animation:overlayIn .3s ease}
+#call-overlay.show{display:flex}
+@keyframes overlayIn{from{opacity:0}to{opacity:1}}
+.call-card{background:white;border-radius:32px;padding:40px 32px;max-width:340px;width:90%;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.4);animation:cardPop .4s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden}
+@keyframes cardPop{from{transform:scale(.6) translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.call-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(5,150,105,.08),rgba(16,185,129,.04));pointer-events:none}
+.call-icon-ring{width:90px;height:90px;background:linear-gradient(135deg,#059669,#10b981);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;box-shadow:0 0 0 12px rgba(5,150,105,.15),0 0 0 24px rgba(5,150,105,.07);animation:ringPulse 1.5s ease-in-out infinite}
+@keyframes ringPulse{0%,100%{box-shadow:0 0 0 12px rgba(5,150,105,.15),0 0 0 24px rgba(5,150,105,.07)}50%{box-shadow:0 0 0 16px rgba(5,150,105,.2),0 0 0 32px rgba(5,150,105,.1)}}
+.call-icon-ring svg{width:44px;height:44px;color:white}
+.call-title{font-size:15px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.call-num{font-size:64px;font-weight:900;color:#059669;line-height:1;letter-spacing:-3px;margin-bottom:8px}
+.call-num span{font-size:28px;letter-spacing:0}
+.call-sub{font-size:14px;color:#374151;font-weight:600;margin-bottom:4px}
+.call-cab{font-size:13px;color:#6b7280;margin-bottom:28px}
+.call-btn{width:100%;padding:16px;background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;border-radius:16px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(5,150,105,.35);transition:all .2s}
+.call-btn:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(5,150,105,.45)}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="logo-box">
+      <img src="logo.png" alt="ВКУ"
+           style="width:62px;height:62px;object-fit:contain;border-radius:8px"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+      <svg style="display:none;width:36px;height:36px;color:white" viewBox="0 0 46 46" fill="none">
+        <path d="M23 8L23 30L10 30Q9 18 23 8Z" fill="rgba(255,255,255,.9)"/>
+        <path d="M23 8L23 30L36 30Q37 18 23 8Z" fill="rgba(255,255,255,.55)"/>
+        <rect x="8" y="30" width="30" height="5" rx="2.5" fill="rgba(255,255,255,.4)"/>
+        <circle cx="23" cy="7" r="4" fill="#FFD700"/>
+      </svg>
+    </div>
+    <div class="header-titles">
+      <div class="uni-name" id="uni-name-main">Сәрсен Аманжолов атындағы</div>
+      <div class="uni-sub"  id="uni-name-sub">Шығыс Қазақстан университеті</div>
+    </div>
+  </div>
+  <div class="lang-bar">
+    <div class="lang-switcher">
+      <button class="lang-btn active" onclick="setLang('kaz')" id="btn-kaz">ҚАЗ</button>
+      <button class="lang-btn"        onclick="setLang('rus')" id="btn-rus">РУС</button>
+      <button class="lang-btn"        onclick="setLang('eng')" id="btn-eng">ENG</button>
+    </div>
+  </div>
+  <div class="step-bar" id="step-bar"></div>
+</header>
+
+<main class="main" id="app"></main>
+
+<div id="call-overlay">
+  <div class="call-card">
+    <div class="call-icon-ring">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.07 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
+    </div>
+    <div class="call-title" id="co-title">Сізді шақырды!</div>
+    <div class="call-num"   id="co-num"><span>S-</span>001</div>
+    <div class="call-sub"   id="co-sub">Кабинетке өтіңіз</div>
+    <div class="call-cab"   id="co-cab">— этаж</div>
+    <button class="call-btn" onclick="dismissCall()">Түсіндім / Понятно</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// TRANSLATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+const T = {
+  kaz:{
+    uniMain:'Сәрсен Аманжолов атындағы', uniSub:'Шығыс Қазақстан университеті',
+    chooseType:'Бағытты таңдаңыз',
+    chooseSubject:'Пән таңдаңыз',
+    chooseSubjectSub:'Профильді пәніңізді таңдаңыз',
+    yourNum:'СІЗДІҢ НӨМІРІҢІЗ',
+    cabinet:'Кабинет / Стол', floor:'Қабат', before:'Сізден бұрын', time:'Алынған уақыт',
+    subject:'ПӘНДЕР / БАҒЫТ',
+    notice:'Кабинетке өтіңіз', noticeSuffix:'және нөміріңізді күтіңіз',
+    backHome:'Басты бетке', people:'адам',
+    home:'Басты бет', ticket:'Талон',
+    steps:['Бағыт','Пән','Талон'],
+    callTitle:'Сізді шақырды!', callSub:'Кабинетке өтіңіз',
+    qrHint:'Жаңа талон алу үшін QR-кодты қайта сканерлеңіз',
+    waitMsg:'Шақырылуды күтіңіз — шақырылмыз',
+    levels:{
+      bachelor:'Бакалавриат', master:'Магистратура / Докторантура',
+      college:'Жоғары колледж', creative:'Шығармашылық'
+    },
+    bachelors:{
+      tipo:'ТжКБ негізінде (колледждан кейін)',
+      vo:'Жоғары білім негізінде',
+      so:'Жалпы орта білім негізінде (мектептен кейін)',
+    },
+  },
+  rus:{
+    uniMain:'Восточно-Казахстанский университет', uniSub:'имени Сарсена Аманжолова',
+    chooseType:'Выберите направление',
+    chooseSubject:'Выберите профильный предмет',
+    chooseSubjectSub:'Выберите вашу комбинацию предметов',
+    yourNum:'ВАШ НОМЕР',
+    cabinet:'Кабинет / Стол', floor:'Этаж', before:'Перед вами', time:'Время получения',
+    subject:'ПРОФИЛЬНЫЙ ПРЕДМЕТ / НАПРАВЛЕНИЕ',
+    notice:'Пожалуйста, пройдите в кабинет', noticeSuffix:'и ожидайте вызова',
+    backHome:'На главную', people:'чел.',
+    home:'Главная', ticket:'Талон',
+    steps:['Направление','Предмет','Талон'],
+    callTitle:'Вас вызывают!', callSub:'Пожалуйста, пройдите в кабинет',
+    qrHint:'Для нового талона отсканируйте QR-код повторно',
+    waitMsg:'Ожидайте вызова —',
+    levels:{
+      bachelor:'Бакалавриат', master:'Магистратура / Докторантура',
+      college:'Высший колледж', creative:'Творческий'
+    },
+    bachelors:{
+      tipo:'ТиПО (после колледжа)',
+      vo:'ВО (после высшего образования)',
+      so:'СО (после школы / среднего образования)',
+    },
+  },
+  eng:{
+    uniMain:'East Kazakhstan University', uniSub:'named after Sarsen Amanzholov',
+    chooseType:'Choose a direction',
+    chooseSub:'Get your queue ticket in seconds',
+    chooseSubject:'Choose a subject combination',
+    chooseSubjectSub:'Select your profile subject',
+    yourNum:'YOUR NUMBER',
+    cabinet:'Office / Desk', floor:'Floor', before:'People before you', time:'Issued at',
+    subject:'SUBJECT / DIRECTION',
+    notice:'Please go to the office', noticeSuffix:'and wait to be called',
+    backHome:'Back to Home', people:'people',
+    home:'Home', ticket:'Ticket',
+    steps:['Direction','Subject','Ticket'],
+    callTitle:'You are called!', callSub:'Please go to the office',
+    qrHint:'Scan the QR code again to get a new ticket',
+    waitMsg:'Wait to be called —',
+    levels:{
+      bachelor:"Bachelor's", master:"Master's / Doctoral",
+      college:'Higher College', creative:'Creative'
+    },
+    bachelors:{
+      tipo:'TVET (after college)',
+      vo:'HE (after higher education)',
+      so:'SE (after school / secondary education)',
+    },
+  }
+};
+let lang = 'kaz';
+const t = k => T[lang][k];
+
+function setLang(l) {
+  lang = l;
+  ['kaz','rus','eng'].forEach(x => document.getElementById('btn-'+x).classList.toggle('active', x===l));
+  document.getElementById('uni-name-main').textContent = t('uniMain');
+  document.getElementById('uni-name-sub').textContent  = t('uniSub');
+  render();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ICONS
+// ═══════════════════════════════════════════════════════════════════════════
+const IC = {
+  grad:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+  book:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>`,
+  master:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v6l-5 9a3 3 0 002.6 4.5h8.8A3 3 0 0019 17l-5-9V2"/><path d="M8 2h8"/></svg>`,
+  college:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+  creative:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
+  tipo:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>`,
+  vo:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><polyline points="9 9 12 12 15 9"/></svg>`,
+  so:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+  subject:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+  door:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><circle cx="7" cy="12" r="1" fill="currentColor"/></svg>`,
+  layers:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
+  users:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>`,
+  clock:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  chev:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+  warn:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  tick:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 010 6v2a2 2 0 002 2h16a2 2 0 002-2v-2a3 3 0 010-6V7a2 2 0 00-2-2H4a2 2 0 00-2 2z"/><line x1="9" y1="9" x2="9" y2="15"/></svg>`,
+  phone:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.07 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>`,
+  home:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUBJECTS for СО (after school) — map key → display name
+// Each key matches a subjects[] entry in staff-config.js
+// ═══════════════════════════════════════════════════════════════════════════
+const SO_SUBJECTS = [
+  { key:'Основы права-Всемирная история',    icon:'book',    color:'blue'   },
+  { key:'Математика-География',               icon:'subject', color:'purple' },
+  { key:'География-Иностранный язык',         icon:'subject', color:'green'  },
+  { key:'Всемирная история-География',        icon:'book',    color:'blue'   },
+  { key:'Русский язык и литература',          icon:'book',    color:'orange' },
+  { key:'Казахский язык и литература',        icon:'book',    color:'teal'   },
+  { key:'Иностранный язык-Всемирная история', icon:'subject', color:'purple' },
+  { key:'Иностранные граждане',               icon:'subject', color:'rose'   },
+  { key:'Математика-Физика',                  icon:'subject', color:'blue'   },
+  { key:'Математика-Информатика',             icon:'subject', color:'purple' },
+  { key:'Химия-Биология',                     icon:'subject', color:'green'  },
+  { key:'Биология-География',                 icon:'subject', color:'teal'   },
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE
+// step: 'level' → 'bachelor_type' → 'subject' → 'ticket'
+//                ↳ (TIPO/VO/Master/College/Creative) directly → 'ticket'
+// ═══════════════════════════════════════════════════════════════════════════
+let S = { step:'level', levelKey:null, bachelorType:null, subjectKey:null, ticket:null };
+
+// Firebase live index of active staff
+let CACHE_ACTIVE_INDEX = {};
+window.addEventListener('DOMContentLoaded', function() {
+  if (window.db) {
+    window.db.ref('active').on('value', function(snap) {
+      CACHE_ACTIVE_INDEX = snap.val() || {};
+      if (S.step === 'level') render();
+    });
+  }
+});
+
+function stepIndex() {
+  const map = { level:0, bachelor_type:1, subject:2, ticket:2 };
+  // if subject step exists, ticket is step 3
+  if (S.step === 'ticket' && S.subjectKey) return 2;
+  return map[S.step] || 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STEP BAR
+// ═══════════════════════════════════════════════════════════════════════════
+function renderStepBar() {
+  // Determine steps dynamically
+  let steps;
+  if (S.levelKey === 'bachelor' && S.bachelorType === 'so') {
+    steps = t('steps'); // ['Direction','Subject','Ticket']
+  } else {
+    steps = [t('steps')[0], t('steps')[2]]; // ['Direction','Ticket']
+  }
+  const cur = S.step === 'ticket' ? steps.length - 1 :
+              S.step === 'subject' ? 1 :
+              S.step === 'bachelor_type' ? 1 : 0;
+  let html = '';
+  steps.forEach((s, i) => {
+    const isDone   = i < cur;
+    const isActive = i === cur;
+    html += `<div class="step-dot ${isDone?'done':''} ${isActive?'active':''}">${isDone?'✓':i+1}<span class="step-label">${s}</span></div>`;
+    if (i < steps.length-1) html += `<div class="step-line ${isDone?'done':''}"></div>`;
+  });
+  document.getElementById('step-bar').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BREADCRUMB
+// ═══════════════════════════════════════════════════════════════════════════
+function renderBreadcrumb() {
+  const lvlName = S.levelKey ? t('levels')[S.levelKey] : '';
+  const btName  = S.bachelorType ? t('bachelors')[S.bachelorType] : '';
+  let html = `<div class="breadcrumb fade-in">
+    <span class="bc-link" onclick="goHome()">${t('home')}</span>`;
+  if (S.levelKey) html += `<span class="bc-sep">›</span><span>${lvlName}</span>`;
+  if (S.bachelorType) html += `<span class="bc-sep">›</span><span>${btName}</span>`;
+  if (S.step === 'ticket') html += `<span class="bc-sep">›</span><span>${t('ticket')}</span>`;
+  html += `</div>`;
+  return html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCREEN: LEVEL SELECTION
+// ═══════════════════════════════════════════════════════════════════════════
+function renderLevel() {
+  const cards = [
+    {
+      key:'bachelor', icon:IC.grad, color:'blue',
+      label: t('levels').bachelor,
+      sub:{ kaz:'ТжКБ · ЖБ · ЖОБ', rus:'ТиПО · ВО · СО', eng:'TVET · HE · SE' }[lang]
+    },
+    {
+      key:'master', icon:IC.master, color:'purple',
+      label: t('levels').master,
+      sub:{ kaz:'231 кабинет, 2 қабат', rus:'Каб. 231, 2 этаж', eng:'Off. 231, floor 2' }[lang]
+    },
+    {
+      key:'college', icon:IC.college, color:'teal',
+      label: t('levels').college,
+      sub:{ kaz:'252 кабинет, 2 қабат', rus:'Каб. 252, 2 этаж', eng:'Off. 252, floor 2' }[lang]
+    },
+    {
+      key:'creative', icon:IC.creative, color:'rose',
+      label: t('levels').creative,
+      sub:{ kaz:'127 кабинет, 1 қабат', rus:'Каб. 127, 1 этаж', eng:'Off. 127, floor 1' }[lang]
+    },
+  ];
+
+  const cardsHTML = cards.map((c, i) => `
+    <div class="level-card ${c.full?'full':''} slide-up stagger-${i+1}" onclick="selectLevel('${c.key}')">
+      <div class="lc-icon ${c.color}">${c.icon}</div>
+      <div class="lc-label">${c.label}</div>
+      <div class="lc-sub">${c.sub}</div>
+      <div class="lc-arrow">${IC.chev}</div>
+    </div>`).join('');
+
+  return `<div class="fade-in">
+    <div style="margin-bottom:24px">
+      <div class="section-title">${t('chooseType')}</div>
+      <div class="section-sub">${t('chooseSub')}</div>
+    </div>
+    <div class="level-grid">${cardsHTML}</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCREEN: BACHELOR TYPE (ТиПО / ВО / СО)
+// ═══════════════════════════════════════════════════════════════════════════
+function renderBachelorType() {
+  const items = [
+    {
+      key:'tipo', icon:IC.tipo, color:'orange',
+      label: t('bachelors').tipo,
+      hint:{ kaz:'125 кабинет / 1-стол', rus:'Каб. 125 / 1 стол', eng:'Off. 125 / desk 1' }[lang]
+    },
+    {
+      key:'vo', icon:IC.vo, color:'purple',
+      label: t('bachelors').vo,
+      hint:{ kaz:'125 кабинет / 2-стол', rus:'Каб. 125 / 2 стол', eng:'Off. 125 / desk 2' }[lang]
+    },
+    {
+      key:'so', icon:IC.so, color:'blue',
+      label: t('bachelors').so,
+      hint:{ kaz:'Профильді пән таңдаймыз', rus:'Выберем профильный предмет', eng:'Choose subject combination' }[lang]
+    },
+  ];
+
+  const itemsHTML = items.map((it, i) => `
+    <div class="subj-item slide-up stagger-${i+1}" onclick="selectBachelorType('${it.key}')">
+      <div class="si-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${it.icon.match(/<svg[^>]*>([\s\S]*)<\/svg>/)?.[1]||''}</svg></div>
+      <div class="si-body">
+        <div class="si-name">${it.label}</div>
+        <div class="si-hint">${it.hint}</div>
+      </div>
+      <div class="si-chevron">${IC.chev}</div>
+    </div>`).join('');
+
+  return `<div class="fade-in">
+    ${renderBreadcrumb()}
+    <div style="margin-bottom:18px">
+      <div class="section-title">${t('levels').bachelor}</div>
+      <div class="section-sub">${{kaz:'Оқу түрін таңдаңыз',rus:'Выберите форму поступления',eng:'Select admission type'}[lang]}</div>
+    </div>
+    <div class="subj-list">${itemsHTML}</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCREEN: SUBJECT SELECTION (only for СО)
+// ═══════════════════════════════════════════════════════════════════════════
+function renderSubject() {
+  const iconMap = {
+    blue:'#3056D3', purple:'#7c3aed', green:'#059669',
+    orange:'#ea580c', teal:'#0d9488', rose:'#e11d74'
+  };
+
+  const itemsHTML = SO_SUBJECTS.map((s, i) => `
+    <div class="subj-item slide-up" style="animation-delay:${Math.min(i,10)*0.04}s" onclick="selectSubject('${s.key}')">
+      <div class="si-dot" style="background:${iconMap[s.color]}18">
+        <svg viewBox="0 0 24 24" fill="none" stroke="${iconMap[s.color]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+      </div>
+      <div class="si-body">
+        <div class="si-name">${s.key}</div>
+      </div>
+      <div class="si-chevron">${IC.chev}</div>
+    </div>`).join('');
+
+  return `<div class="fade-in">
+    ${renderBreadcrumb()}
+    <div style="margin-bottom:18px">
+      <div class="section-title">${t('chooseSubject')}</div>
+      <div class="section-sub">${t('chooseSubjectSub')}</div>
+    </div>
+    <div class="subj-list">${itemsHTML}</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCREEN: TICKET
+// ═══════════════════════════════════════════════════════════════════════════
+function makeConfetti() {
+  const colors = ['#3056D3','#6b8aff','#FFD700','#ff6b6b','#51cf66','#cc5de8'];
+  let html = '';
+  for (let i = 0; i < 18; i++) {
+    const x = Math.random()*100, delay = Math.random()*.6;
+    const color = colors[Math.floor(Math.random()*colors.length)];
+    const size = 6+Math.random()*6;
+    html += `<div class="cf" style="left:${x}%;background:${color};width:${size}px;height:${size}px;animation-delay:${delay}s;border-radius:${Math.random()>.5?'50%':'3px'}"></div>`;
+  }
+  return `<div class="confetti">${html}</div>`;
+}
+
+function renderTicket() {
+  const tk = S.ticket;
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  const dateStr = now.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  // Determine prefix letter
+  let prefix = 'S';
+  if (S.levelKey === 'master')   prefix = 'M';
+  else if (S.levelKey === 'college')  prefix = 'C';
+  else if (S.levelKey === 'creative') prefix = 'T';
+  else if (S.levelKey === 'bachelor') {
+    if (S.bachelorType === 'tipo') prefix = 'T';
+    else if (S.bachelorType === 'vo') prefix = 'V';
+    else prefix = 'B';
+  }
+
+  // Section title
+  const lvlLabel = t('levels')[S.levelKey] || '';
+  const btLabel  = S.bachelorType ? ' · ' + t('bachelors')[S.bachelorType] : '';
+  const subjLabel = tk.subjectKey || '';
+
+  return `<div class="fade-in ticket-wrap">
+    ${makeConfetti()}
+    <div class="ticket slide-up">
+      <div class="ticket-top">
+        <div class="tt-logo">${IC.tick}</div>
+        <div class="tt-uni">${t('uniMain')}</div>
+        <div class="tt-level">${lvlLabel}${btLabel}</div>
+      </div>
+      <div class="ticket-num-section">
+        <div class="tn-label">${t('yourNum')}</div>
+        <div class="tn-number"><span class="tn-prefix">${prefix}-</span>${String(tk.number).padStart(3,'0')}</div>
+      </div>
+      <hr class="dash-sep">
+      <div class="ticket-info">
+        <div class="ti-row">
+          <div class="ti-icon blue">${IC.door}</div>
+          <div class="ti-body"><div class="ti-label">${t('cabinet')}</div><div class="ti-val big">${tk.cabinet}</div></div>
+        </div>
+        <div class="ti-row">
+          <div class="ti-icon purple">${IC.layers}</div>
+          <div class="ti-body"><div class="ti-label">${t('floor')}</div><div class="ti-val">${tk.floor}</div></div>
+        </div>
+        <div class="ti-row">
+          <div class="ti-icon green">${IC.users}</div>
+          <div class="ti-body"><div class="ti-label">${t('before')}</div><div class="ti-val big">${tk.before} ${t('people')}</div></div>
+        </div>
+        <div class="ti-row">
+          <div class="ti-icon gold">${IC.clock}</div>
+          <div class="ti-body"><div class="ti-label">${t('time')}</div><div class="ti-val">${timeStr}, ${dateStr}</div></div>
+        </div>
+      </div>
+      ${subjLabel ? `<div class="ticket-subj">
+        <div class="tp-label">${IC.subject} ${t('subject')}</div>
+        <div class="tp-name">${subjLabel}</div>
+      </div>` : ''}
+      <div class="ticket-notice">
+        ${IC.warn}
+        <p>${t('notice')} <strong>${tk.cabinet}</strong> ${t('noticeSuffix')}</p>
+      </div>
+      <div id="ticket-status-inject"></div>
+      <div class="ticket-footer">
+        <div class="qr-hint">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/><rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/></svg>
+          <span>${t('qrHint')}</span>
+        </div>
+        <div style="height:12px"></div>
+        <button class="btn-home" onclick="goHome()">
+          ${IC.home} ${t('backHome')}
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER ROUTER
+// ═══════════════════════════════════════════════════════════════════════════
+function render() {
+  const app = document.getElementById('app');
+  if (S.step === 'level')         app.innerHTML = renderLevel();
+  else if (S.step === 'bachelor_type') app.innerHTML = renderBachelorType();
+  else if (S.step === 'subject')  app.innerHTML = renderSubject();
+  else if (S.step === 'ticket')   app.innerHTML = renderTicket();
+  renderStepBar();
+
+  if (S.step === 'ticket') {
+    startCallListener();
+    injectStatusBar();
+  } else {
+    stopCallListener();
+  }
+}
+
+function injectStatusBar() {
+  const tk = S.ticket;
+  if (!tk) return;
+  let prefix = 'S';
+  if (S.levelKey === 'master')   prefix = 'M';
+  else if (S.levelKey === 'college')  prefix = 'C';
+  else if (S.levelKey === 'creative') prefix = 'T';
+  else if (S.levelKey === 'bachelor') {
+    if (S.bachelorType === 'tipo') prefix = 'T';
+    else if (S.bachelorType === 'vo') prefix = 'V';
+    else prefix = 'B';
+  }
+  const numStr = prefix + '-' + String(tk.number).padStart(3,'0');
+  const el = document.getElementById('ticket-status-inject');
+  if (el) {
+    el.innerHTML = `<div class="ticket-status-bar" style="margin:16px 20px 0">
+      <div class="tsb-dot"></div>
+      <div class="tsb-text">${t('waitMsg')} <b>${numStr}</b></div>
+    </div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+function selectLevel(key) {
+  S.levelKey = key;
+  if (key === 'bachelor') {
+    S.step = 'bachelor_type';
+  } else {
+    // Master / College / Creative — issue ticket directly
+    const markerMap = {
+      master:   '__MASTER__',
+      college:  '__COLLEGE__',
+      creative: '__CREATIVE__',
+    };
+    issueTicket(markerMap[key], null);
+    return;
+  }
+  render();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function selectBachelorType(key) {
+  S.bachelorType = key;
+  if (key === 'tipo') {
+    issueTicket('__TIPO__', null);
+  } else if (key === 'vo') {
+    issueTicket('__VO__', null);
+  } else {
+    // СО — show subject list
+    S.step = 'subject';
+    render();
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+}
+
+function selectSubject(subjectKey) {
+  S.subjectKey = subjectKey;
+  issueTicket(subjectKey, subjectKey);
+}
+
+function issueTicket(staffMarker, subjectLabel) {
+  const staff = getStaffBySubject(staffMarker);
+  if (!staff) {
+    alert('Сотрудник не найден для: ' + staffMarker);
+    return;
+  }
+
+  // Firebase transaction to get global counter + push to queue
+  window.db.ref('meta/globalCounter').transaction(function(cur) {
+    return (cur || 0) + 1;
+  }, function(error, committed, snap) {
+    if (error || !committed) {
+      alert('Firebase ошибка: ' + (error ? error.message : 'не сохранено'));
+      return;
+    }
+    const globalNumber = snap.val();
+    const timeStr = new Date().toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'});
+
+    window.db.ref('queues/' + staff.id).transaction(function(data) {
+      if (!data) data = { current:0, queue:[], history:[] };
+      if (!data.queue)   data.queue   = [];
+      if (!data.history) data.history = [];
+      data.queue.push({
+        number: globalNumber,
+        code:   staffMarker,
+        name:   subjectLabel || staff.name,
+        time:   timeStr,
+        called: false
+      });
+      return data;
+    }, function(err, ok, snapshot) {
+      if (err || !ok) { alert('Firebase ошибка при записи'); return; }
+      const data = snapshot.val();
+      const waiting = (data.queue || []).filter(q => !q.called);
+
+      S.ticket = {
+        number:     globalNumber,
+        before:     waiting.length - 1,
+        cabinet:    staff.cabinet,
+        floor:      staff.floor,
+        staffId:    staff.id,
+        subjectKey: subjectLabel,
+      };
+      S.step = 'ticket';
+
+      try {
+        sessionStorage.setItem('talapker_session', JSON.stringify({
+          ticket:      S.ticket,
+          levelKey:    S.levelKey,
+          bachelorType:S.bachelorType,
+          subjectKey:  S.subjectKey,
+          step:        'ticket',
+        }));
+      } catch(e) {}
+
+      render();
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
+  });
+}
+
+function goHome() {
+  S = { step:'level', levelKey:null, bachelorType:null, subjectKey:null, ticket:null };
+  try { sessionStorage.removeItem('talapker_session'); } catch(e) {}
+  render();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RESTORE SESSION
+// ═══════════════════════════════════════════════════════════════════════════
+try {
+  const saved = sessionStorage.getItem('talapker_session');
+  if (saved) {
+    const p = JSON.parse(saved);
+    if (p && p.ticket && p.levelKey) {
+      S.ticket       = p.ticket;
+      S.levelKey     = p.levelKey;
+      S.bachelorType = p.bachelorType || null;
+      S.subjectKey   = p.subjectKey   || null;
+      S.step         = 'ticket';
+    }
+  }
+} catch(e) {}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CALL NOTIFICATION
+// ═══════════════════════════════════════════════════════════════════════════
+let callListener = null;
+let _phoneAudioCtx = null;
+
+function getAudioCtx() {
+  if (!_phoneAudioCtx) _phoneAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_phoneAudioCtx.state === 'suspended') _phoneAudioCtx.resume();
+  return _phoneAudioCtx;
+}
+document.addEventListener('touchstart', function(){ getAudioCtx(); }, {once:true});
+document.addEventListener('click',      function(){ getAudioCtx(); }, {once:true});
+
+function playChime() {
+  try {
+    const ctx = getAudioCtx(), now = ctx.currentTime;
+    [{f:523.25,t:0},{f:659.25,t:.2},{f:783.99,t:.4},{f:1046.5,t:.62}].forEach(n=>{
+      const osc=ctx.createOscillator(),g=ctx.createGain();
+      osc.connect(g);g.connect(ctx.destination);osc.type='sine';osc.frequency.value=n.f;
+      g.gain.setValueAtTime(0,now+n.t);
+      g.gain.linearRampToValueAtTime(.45,now+n.t+.04);
+      g.gain.exponentialRampToValueAtTime(.001,now+n.t+.42);
+      osc.start(now+n.t);osc.stop(now+n.t+.5);
+    });
+  } catch(e) {}
+}
+
+function startCallListener() {
+  if (!S.ticket || !S.ticket.staffId || !window.db) return;
+  stopCallListener();
+  callListener = window.db.ref('queues/' + S.ticket.staffId + '/current')
+    .on('value', function(snap) {
+      const cur = snap.val();
+      if (cur && cur == S.ticket.number) showCallNotification(cur);
+    });
+}
+
+function stopCallListener() {
+  if (callListener && S.ticket && window.db) {
+    window.db.ref('queues/' + S.ticket.staffId + '/current').off('value', callListener);
+    callListener = null;
+  }
+}
+
+function showCallNotification(num) {
+  let prefix = 'S';
+  if (S.levelKey === 'master')   prefix = 'M';
+  else if (S.levelKey === 'college')  prefix = 'C';
+  else if (S.levelKey === 'creative') prefix = 'T';
+  else if (S.levelKey === 'bachelor') {
+    if (S.bachelorType === 'tipo') prefix = 'T';
+    else if (S.bachelorType === 'vo') prefix = 'V';
+    else prefix = 'B';
+  }
+  document.getElementById('co-title').textContent = t('callTitle');
+  document.getElementById('co-num').innerHTML = '<span>' + prefix + '-</span>' + String(num).padStart(3,'0');
+  document.getElementById('co-sub').textContent = t('callSub');
+  document.getElementById('co-cab').textContent = (S.ticket ? S.ticket.cabinet : '—') + ' · ' + (S.ticket ? S.ticket.floor : '');
+  document.getElementById('call-overlay').classList.add('show');
+  if (navigator.vibrate) navigator.vibrate([400,150,400,150,600]);
+  playChime();
+}
+
+function dismissCall() {
+  document.getElementById('call-overlay').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+setLang('kaz');
+</script>
+</body>
+</html>
