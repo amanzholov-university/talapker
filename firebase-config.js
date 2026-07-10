@@ -9,12 +9,10 @@ const firebaseConfig = {
   measurementId: "G-XBVGNHMR9F"
 };
 
-firebase.initializeApp(firebaseConfig);
-window.db = firebase.database();
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
 
-import { getAuth, signInAnonymously } from "firebase/auth";
-
-const auth = getAuth();
 signInAnonymously(auth).catch((error) => {
   console.error("Ошибка анонимного входа:", error);
 });
