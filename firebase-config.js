@@ -11,8 +11,3 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const auth = getAuth(app);
-
-signInAnonymously(auth).catch((error) => {
-  console.error("Ошибка анонимного входа:", error);
-});
