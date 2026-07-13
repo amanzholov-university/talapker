@@ -756,8 +756,11 @@ function issueTicket(staffMarker, subjectLabel) {
       };
       S.step = 'ticket';
 
+      // Сохраняем в localStorage (переживает сворачивание и закрытие браузера,
+      // в отличие от sessionStorage, который сбрасывается когда мобильный
+      // браузер выгружает вкладку из памяти)
       try {
-        sessionStorage.setItem('talapker_session', JSON.stringify({
+        localStorage.setItem('talapker_session', JSON.stringify({
           ticket:      S.ticket,
           levelKey:    S.levelKey,
           bachelorType:S.bachelorType,
@@ -774,7 +777,7 @@ function issueTicket(staffMarker, subjectLabel) {
 
 function goHome() {
   S = { step:'level', levelKey:null, bachelorType:null, subjectKey:null, ticket:null };
-  try { sessionStorage.removeItem('talapker_session'); } catch(e) {}
+  try { localStorage.removeItem('talapker_session'); } catch(e) {}
   render();
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -783,7 +786,7 @@ function goHome() {
 // RESTORE SESSION
 // ═══════════════════════════════════════════════════════════════════════════
 try {
-  const saved = sessionStorage.getItem('talapker_session');
+  const saved = localStorage.getItem('talapker_session');
   if (saved) {
     const p = JSON.parse(saved);
     if (p && p.ticket && p.levelKey) {
@@ -858,6 +861,10 @@ function showCallNotification(num) {
   document.getElementById('call-overlay').classList.add('show');
   if (navigator.vibrate) navigator.vibrate([400,150,400,150,600]);
   playChime();
+
+  // Талон обслужен — очищаем сохранённую сессию, чтобы при следующем заходе
+  // (или перезагрузке страницы) не показывался уже вызванный талон
+  try { localStorage.removeItem('talapker_session'); } catch(e) {}
 }
 
 function dismissCall() {
