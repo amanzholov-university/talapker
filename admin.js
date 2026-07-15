@@ -133,6 +133,7 @@ function renderQueue() {
           '<div class="q-b"><div class="q-c">'+q.time+'</div>' +
           '<div class="q-nm">'+(q.name||'—')+'</div></div>' +
           (i===0 ? '<span class="nx-tag">Следующий</span>' : '') +
+          '<button class="q-del" title="Удалить талон" onclick="deleteTicket('+q.number+')">✕</button>' +
         '</div>';
       }).join('')
     : '<div class="empty-q"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>Очередь пуста</p></div>';
@@ -279,6 +280,19 @@ function recallCurrent() {
     }, 400);
   });
   toast('🔔 Қайта шақырылды / Повторный вызов: ' + numStr);
+}
+
+function deleteTicket(number) {
+  const data = getQueueData();
+  const t = data.queue.find(function(q){ return q.number === number && !q.called; });
+  if (!t) return;
+  const pfx = ME.id.replace('staff_','S');
+  const numStr = pfx + '-' + String(number).padStart(3,'0');
+  if (!confirm('Удалить талон ' + numStr + ' (' + (t.name||'—') + ') из очереди?')) return;
+  data.queue = data.queue.filter(function(q){ return !(q.number === number && !q.called); });
+  saveQueueData(data);
+  renderAll();
+  toast('🗑 Талон ' + numStr + ' удалён');
 }
 
 function resetQ() {
