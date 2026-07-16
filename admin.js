@@ -27,18 +27,22 @@ function tryLogin() {
 // ── SESSION ───────────────────────────────────────────────────────────────────
 let ME = null;
 let TAB = 'queue';
+let ADMIN_VIEW = null; // id of desk currently opened by the program admin (null = show dashboard)
 
 function doLogin(staff) {
-  ME = staff; TAB = 'queue';
+  ME = staff; TAB = staff.isAdmin ? 'dashboard' : 'queue';
+  ADMIN_VIEW = null;
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('adminScreen').style.display = 'block';
   document.getElementById('aName').textContent = staff.name;
-  document.getElementById('aCab').textContent  = 'Кабинет ' + staff.cabinet + ' · ' + staff.floor;
+  document.getElementById('aCab').textContent  = staff.isAdmin
+    ? 'Управление всеми столами приёмной комиссии'
+    : 'Кабинет ' + staff.cabinet + ' · ' + staff.floor;
   renderAll();
   startRefresh();
 }
 function logout() {
-  ME = null; pin = ''; dots(); stopRefresh();
+  ME = null; ADMIN_VIEW = null; pin = ''; dots(); stopRefresh();
   document.getElementById('adminScreen').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
 }
@@ -47,9 +51,22 @@ function logout() {
 let CACHE_QUEUE  = {};
 let CACHE_ACTIVE = {};
 
+// Which desk's data we're currently looking at:
+// - regular staff: always their own desk
+// - program admin: the desk they opened from the dashboard (or null while on the dashboard)
+function currentId() {
+  if (ME && ME.isAdmin) return ADMIN_VIEW;
+  return ME ? ME.id : null;
+}
+function currentStaff() {
+  if (ME && ME.isAdmin && ADMIN_VIEW) return STAFF_CONFIG.find(function(s){ return s.id === ADMIN_VIEW; }) || ME;
+  return ME;
+}
+
 function getQueueData() {
-  if (!ME) return { current:0, queue:[], history:[] };
-  const d = CACHE_QUEUE[ME.id];
+  const id = currentId();
+  if (!id) return { current:0, queue:[], history:[] };
+  const d = CACHE_QUEUE[id];
   if (!d) return { current:0, queue:[], history:[] };
   if (!d.queue)   d.queue   = [];
   if (!d.history) d.history = [];
@@ -57,20 +74,24 @@ function getQueueData() {
 }
 
 function getMyActive() {
-  if (!ME) return [];
-  const active = CACHE_ACTIVE[ME.id];
+  const id = currentId();
+  if (!id) return [];
+  const active = CACHE_ACTIVE[id];
   return Array.isArray(active) ? active : [];
 }
 
 function setMyActive(arr) {
-  if (!ME) return;
-  CACHE_ACTIVE[ME.id] = arr;
-  window.db.ref('active/' + ME.id).set(arr);
+  const id = currentId();
+  if (!id) return;
+  CACHE_ACTIVE[id] = arr;
+  window.db.ref('active/' + id).set(arr);
 }
 
 function saveQueueData(d) {
-  CACHE_QUEUE[ME.id] = d;
-  window.db.ref('queues/' + ME.id).set(d);
+  const id = currentId();
+  if (!id) return;
+  CACHE_QUEUE[id] = d;
+  window.db.ref('queues/' + id).set(d);
 }
 
 function listenFirebase() {
@@ -85,7 +106,76 @@ function listenFirebase() {
 }
 
 // ── RENDER ALL ────────────────────────────────────────────────────────────────
-function renderAll() { renderTabs(); TAB === 'queue' ? renderQueue() : renderSubjects(); }
+function renderAll() {
+  if (!ME) return;
+  if (ME.isAdmin && !ADMIN_VIEW) {
+    document.getElementById('aTabs').innerHTML = '';
+    renderDashboard();
+    return;
+  }
+  renderTabs();
+  TAB === 'queue' ? renderQueue() : renderSubjects();
+}
+
+// ── DASHBOARD (program admin only) — overview of every desk ───────────────────
+function renderDashboard() {
+  const desks = STAFF_CONFIG.filter(function(s){ return !s.isAdmin; });
+
+  const totalWaiting = desks.reduce(function(sum, s) {
+    const q = CACHE_QUEUE[s.id];
+    return sum + (q && q.queue ? q.queue.filter(function(x){return !x.called;}).length : 0);
+  }, 0);
+  const totalServed = desks.reduce(function(sum, s) {
+    const q = CACHE_QUEUE[s.id];
+    return sum + (q && q.history ? q.history.length : 0);
+  }, 0);
+  const totalOn = desks.filter(function(s){
+    const a = CACHE_ACTIVE[s.id];
+    return Array.isArray(a) && a.length > 0;
+  }).length;
+
+  const rows = desks.map(function(s) {
+    const q = CACHE_QUEUE[s.id] || { queue:[], history:[] };
+    const waiting = (q.queue || []).filter(function(x){ return !x.called; }).length;
+    const served  = (q.history || []).length;
+    const act = CACHE_ACTIVE[s.id];
+    const isOn = Array.isArray(act) && act.length > 0;
+    return '<div class="panel desk-card" onclick="openDesk(\''+s.id+'\')">' +
+      '<div class="p-top" style="background:'+(isOn ? 'linear-gradient(135deg,#059669,#0d9488)' : 'linear-gradient(135deg,#94a3b8,#64748b)')+'">' +
+        '<div class="p-top-l"><div class="p-sub">'+(s.floor||'')+'</div><div class="p-title">'+s.cabinet+'</div></div>' +
+        '<div class="p-badge">'+(isOn ? '🟢 ВКЛ' : '⚪ ВЫКЛ')+'</div>' +
+      '</div>' +
+      '<div class="stats" style="padding:14px 16px 16px;margin-bottom:0">' +
+        '<div class="sc o"><div class="sv">'+waiting+'</div><div class="sl">Ожидают</div></div>' +
+        '<div class="sc g"><div class="sv">'+served+'</div><div class="sl">Обслужено</div></div>' +
+        '<div class="sc"><div class="sv">'+(q.current ? String(q.current).padStart(3,'0') : '—')+'</div><div class="sl">Текущий</div></div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById('aContent').innerHTML =
+    '<div class="progs-header">' +
+      '<div><h3>Все столы приёмной комиссии</h3><p>Нажмите на стол, чтобы открыть его очередь</p></div>' +
+      '<div class="progs-counts">' +
+        '<div class="pc o"><div class="pc-v">'+totalWaiting+'</div><div class="pc-l">В очереди</div></div>' +
+        '<div class="pc g"><div class="pc-v">'+totalOn+'/'+desks.length+'</div><div class="pc-l">Активны</div></div>' +
+      '</div>' +
+    '</div>' +
+    rows;
+}
+
+function openDesk(id) {
+  ADMIN_VIEW = id;
+  TAB = 'queue';
+  renderAll();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function backToDashboard() {
+  ADMIN_VIEW = null;
+  renderAll();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 
 function renderTabs() {
   const data    = getQueueData();
@@ -107,10 +197,12 @@ function switchTab(t) { TAB = t; renderAll(); }
 
 // ── QUEUE TAB ─────────────────────────────────────────────────────────────────
 function renderQueue() {
+  const st      = currentStaff();
   const data    = getQueueData();
   const waiting = data.queue.filter(q => !q.called);
   const served  = data.history.length;
-  const pfx     = ME.id.replace('staff_','S');
+  const pfx     = st.id.replace('staff_','S');
+  const backBtn = ME.isAdmin ? '<button class="btn-back" onclick="backToDashboard()">← Все столы</button>' : '';
 
   const curHTML = data.current
     ? '<div class="cur-num"><span class="cur-pfx">'+pfx+'-</span>'+String(data.current).padStart(3,'0')+'</div>'
@@ -127,7 +219,7 @@ function renderQueue() {
     : '';
 
   const qItems = waiting.length
-    ? waiting.slice(0,15).map(function(q,i) {
+    ? waiting.slice(0,300).map(function(q,i) {
         return '<div class="q-row '+(i===0?'nx':'')+'">' +
           '<div class="q-n '+(i===0?'nx':'')+'">'+String(q.number).padStart(3,'0')+'</div>' +
           '<div class="q-b"><div class="q-c">'+q.time+'</div>' +
@@ -139,7 +231,7 @@ function renderQueue() {
     : '<div class="empty-q"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>Очередь пуста</p></div>';
 
   const hist = data.history.length
-    ? data.history.slice().reverse().slice(0,8).map(function(h) {
+    ? data.history.slice().reverse().slice(0,20).map(function(h) {
         return '<div class="q-row">' +
           '<div class="q-n" style="background:#e8ecf8;color:var(--text-3)">'+String(h.number).padStart(3,'0')+'</div>' +
           '<div class="q-b"><div class="q-c">'+h.calledAt+'</div><div class="q-nm">'+(h.name||'—')+'</div></div>' +
@@ -153,6 +245,7 @@ function renderQueue() {
     : '';
 
   document.getElementById('aContent').innerHTML =
+    backBtn +
     warnHTML +
     '<div class="stats">' +
       '<div class="sc"><div class="sv">'+(data.current||'—')+'</div><div class="sl">Вызван</div></div>' +
@@ -161,7 +254,7 @@ function renderQueue() {
     '</div>' +
     '<div class="panel">' +
       '<div class="p-top">' +
-        '<div class="p-top-l"><div class="p-sub">'+ME.cabinet+' · '+ME.floor+'</div><div class="p-title">'+ME.name+'</div></div>' +
+        '<div class="p-top-l"><div class="p-sub">'+st.cabinet+' · '+st.floor+'</div><div class="p-title">'+st.name+'</div></div>' +
         '<div class="p-badge">'+waiting.length+' ожидают</div>' +
       '</div>' +
       '<div class="cur-block"><div><div class="cur-lbl">Текущий вызов</div>'+curHTML+'</div>'+nextCard+'</div>' +
@@ -186,9 +279,11 @@ function renderQueue() {
 // ── SUBJECTS TAB (replaces Programs tab) ─────────────────────────────────────
 function renderSubjects() {
   if (!ME) return;
+  const st     = currentStaff();
   const myAct  = getMyActive();
   const isOn   = myAct.length > 0;
-  const subjects = ME.subjects || [];
+  const subjects = st.subjects || [];
+  const backBtn = ME.isAdmin ? '<button class="btn-back" onclick="backToDashboard()">← Все столы</button>' : '';
 
   // Display subject list
   const subjRows = subjects.map(function(s) {
@@ -201,8 +296,9 @@ function renderSubjects() {
   }).join('');
 
   document.getElementById('aContent').innerHTML =
+    backBtn +
     '<div class="progs-header">' +
-      '<div><h3>Мой стол: '+ME.cabinet+'</h3><p>'+ME.floor+' · Управление активностью</p></div>' +
+      '<div><h3>'+(ME.isAdmin?'Стол':'Мой стол')+': '+st.cabinet+'</h3><p>'+st.floor+' · Управление активностью</p></div>' +
       '<div class="progs-counts">' +
         '<div class="pc '+(isOn?'g':'')+'"><div class="pc-v">'+(isOn?'ВКЛ':'ВЫКЛ')+'</div><div class="pc-l">Статус</div></div>' +
       '</div>' +
@@ -238,25 +334,29 @@ function markerLabel(marker) {
     '__MASTER__':   'Магистратура / Докторантура',
     '__COLLEGE__':  'Высший колледж',
     '__CREATIVE__': 'Творческий ОП',
+    '__SUPERADMIN__': 'Администратор программы',
   };
   return map[marker] || marker;
 }
 
 // Desk ON/OFF — simple: when ON we push a sentinel value so Firebase knows it's active
 function deskOn() {
+  const st = currentStaff();
   // Store desk marker as active
-  setMyActive(ME.subjects || ['__ACTIVE__']);
+  setMyActive(st.subjects || ['__ACTIVE__']);
   renderAll();
-  toast('✅ Приём открыт — ' + ME.cabinet);
+  toast('✅ Приём открыт — ' + st.cabinet);
 }
 function deskOff() {
+  const st = currentStaff();
   setMyActive([]);
   renderAll();
-  toast('⛔ Приём закрыт — ' + ME.cabinet);
+  toast('⛔ Приём закрыт — ' + st.cabinet);
 }
 
 // ── QUEUE ACTIONS ─────────────────────────────────────────────────────────────
 function callNext() {
+  const st = currentStaff();
   const data = getQueueData();
   const w = data.queue.filter(q => !q.called);
   if (!w.length) return;
@@ -266,27 +366,29 @@ function callNext() {
   data.history.push({ number:nxt.number, code:nxt.code, name:nxt.name, calledAt:nowT() });
   saveQueueData(data);
   renderAll();
-  toast('▶ ' + ME.id.replace('staff_','S') + '-' + String(nxt.number).padStart(3,'0') + ' — ' + (nxt.name||'').substring(0,28));
+  toast('▶ ' + st.id.replace('staff_','S') + '-' + String(nxt.number).padStart(3,'0') + ' — ' + (nxt.name||'').substring(0,28));
 }
 
 function recallCurrent() {
+  const st = currentStaff();
   const data = getQueueData();
   if (!data.current) return;
-  const pfx = ME.id.replace('staff_','S');
+  const pfx = st.id.replace('staff_','S');
   const numStr = pfx + '-' + String(data.current).padStart(3,'0');
-  window.db.ref('queues/' + ME.id + '/current').set(0, function() {
+  window.db.ref('queues/' + st.id + '/current').set(0, function() {
     setTimeout(function() {
-      window.db.ref('queues/' + ME.id + '/current').set(data.current);
+      window.db.ref('queues/' + st.id + '/current').set(data.current);
     }, 400);
   });
   toast('🔔 Қайта шақырылды / Повторный вызов: ' + numStr);
 }
 
 function deleteTicket(number) {
+  const st = currentStaff();
   const data = getQueueData();
   const t = data.queue.find(function(q){ return q.number === number && !q.called; });
   if (!t) return;
-  const pfx = ME.id.replace('staff_','S');
+  const pfx = st.id.replace('staff_','S');
   const numStr = pfx + '-' + String(number).padStart(3,'0');
   if (!confirm('Удалить талон ' + numStr + ' (' + (t.name||'—') + ') из очереди?')) return;
   data.queue = data.queue.filter(function(q){ return !(q.number === number && !q.called); });
