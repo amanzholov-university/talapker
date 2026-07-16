@@ -844,18 +844,38 @@ function playChime() {
 function startCallListener() {
   if (!S.ticket || !S.ticket.staffId || !window.db) return;
   stopCallListener();
-  callListener = window.db.ref('queues/' + S.ticket.staffId + '/current')
+  callListener = window.db.ref('queues/' + S.ticket.staffId)
     .on('value', function(snap) {
-      const cur = snap.val();
-      if (cur && cur == S.ticket.number) showCallNotification(cur);
+      const data = snap.val();
+      if (!data || !S.ticket) return;
+
+      const cur = data.current;
+      if (cur && cur == S.ticket.number) { showCallNotification(cur); return; }
+
+      // Талон пропал из очереди стола (сотрудник удалил его вручную) —
+      // возвращаем пользователя на главную и просим взять новый талон
+      const stillExists = Array.isArray(data.queue) && data.queue.some(function(q){ return q.number === S.ticket.number; });
+      if (!stillExists) handleTicketDeleted();
     });
 }
 
 function stopCallListener() {
   if (callListener && S.ticket && window.db) {
-    window.db.ref('queues/' + S.ticket.staffId + '/current').off('value', callListener);
+    window.db.ref('queues/' + S.ticket.staffId).off('value', callListener);
     callListener = null;
   }
+}
+
+function handleTicketDeleted() {
+  stopCallListener();
+  try { localStorage.removeItem('talapker_session'); } catch(e) {}
+  const msg = {
+    kaz: 'Сіздің талоныңыз алынып тасталды. Өтінеміз, қайта кезекке тұрыңыз.',
+    rus: 'Ваш талон был удалён сотрудником. Пожалуйста, возьмите новый талон.',
+    eng: 'Your ticket was removed by staff. Please get a new ticket.'
+  }[lang] || 'Ваш талон был удалён.';
+  alert(msg);
+  goHome();
 }
 
 function showCallNotification(num) {
