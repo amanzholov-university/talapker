@@ -344,18 +344,30 @@ const IC = {
 // Each key matches a subjects[] entry in staff-config.js
 // ═══════════════════════════════════════════════════════════════════════════
 const SO_SUBJECTS = [
-  { key:'Основы права-Всемирная история',    icon:'book',    color:'blue'   },
-  { key:'Математика-География',               icon:'subject', color:'purple' },
-  { key:'География-Иностранный язык',         icon:'subject', color:'green'  },
-  { key:'Всемирная история-География',        icon:'book',    color:'blue'   },
-  { key:'Русский язык и литература',          icon:'book',    color:'orange' },
-  { key:'Казахский язык и литература',        icon:'book',    color:'teal'   },
-  { key:'Иностранный язык-Всемирная история', icon:'subject', color:'purple' },
-  { key:'Иностранные граждане',               icon:'subject', color:'rose'   },
-  { key:'Математика-Физика',                  icon:'subject', color:'blue'   },
-  { key:'Математика-Информатика',             icon:'subject', color:'purple' },
-  { key:'Химия-Биология',                     icon:'subject', color:'green'  },
-  { key:'Биология-География',                 icon:'subject', color:'teal'   },
+  { key:'Основы права-Всемирная история',    icon:'book',    color:'blue',
+    label:{ rus:'Основы права-Всемирная история',    kaz:'Құқық негіздері-Дүниежүзі тарихы',        eng:'Basics of Law-World History' } },
+  { key:'Математика-География',               icon:'subject', color:'purple',
+    label:{ rus:'Математика-География',               kaz:'Математика-География',                    eng:'Mathematics-Geography' } },
+  { key:'География-Иностранный язык',         icon:'subject', color:'green',
+    label:{ rus:'География-Иностранный язык',         kaz:'География-Шет тілі',                       eng:'Geography-Foreign Language' } },
+  { key:'Всемирная история-География',        icon:'book',    color:'blue',
+    label:{ rus:'Всемирная история-География',        kaz:'Дүниежүзі тарихы-География',               eng:'World History-Geography' } },
+  { key:'Русский язык и литература',          icon:'book',    color:'orange',
+    label:{ rus:'Русский язык и литература',          kaz:'Орыс тілі мен әдебиеті',                    eng:'Russian Language and Literature' } },
+  { key:'Казахский язык и литература',        icon:'book',    color:'teal',
+    label:{ rus:'Казахский язык и литература',        kaz:'Қазақ тілі мен әдебиеті',                   eng:'Kazakh Language and Literature' } },
+  { key:'Иностранный язык-Всемирная история', icon:'subject', color:'purple',
+    label:{ rus:'Иностранный язык-Всемирная история', kaz:'Шет тілі-Дүниежүзі тарихы',                 eng:'Foreign Language-World History' } },
+  { key:'Иностранные граждане',               icon:'subject', color:'rose',
+    label:{ rus:'Иностранные граждане',               kaz:'Шетелдік азаматтар',                        eng:'Foreign citizens' } },
+  { key:'Математика-Физика',                  icon:'subject', color:'blue',
+    label:{ rus:'Математика-Физика',                  kaz:'Математика-Физика',                         eng:'Mathematics-Physics' } },
+  { key:'Математика-Информатика',             icon:'subject', color:'purple',
+    label:{ rus:'Математика-Информатика',             kaz:'Математика-Информатика',                    eng:'Mathematics-Computer Science' } },
+  { key:'Химия-Биология',                     icon:'subject', color:'green',
+    label:{ rus:'Химия-Биология',                     kaz:'Химия-Биология',                            eng:'Chemistry-Biology' } },
+  { key:'Биология-География',                 icon:'subject', color:'teal',
+    label:{ rus:'Биология-География',                 kaz:'Биология-География',                        eng:'Biology-Geography' } },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -471,6 +483,11 @@ function renderLevel() {
 function renderBachelorType() {
   const items = [
     {
+      key:'so', icon:IC.so, color:'blue',
+      label: t('bachelors').so,
+      hint:{ kaz:'Профильді пән таңдаймыз', rus:'Выберем профильный предмет', eng:'Choose subject combination' }[lang]
+    },
+    {
       key:'tipo', icon:IC.tipo, color:'orange',
       label: t('bachelors').tipo,
       hint:{ kaz:'125 кабинет / 1-стол', rus:'Каб. 125 / 1 стол', eng:'Off. 125 / desk 1' }[lang]
@@ -479,11 +496,6 @@ function renderBachelorType() {
       key:'vo', icon:IC.vo, color:'purple',
       label: t('bachelors').vo,
       hint:{ kaz:'125 кабинет / 2-стол', rus:'Каб. 125 / 2 стол', eng:'Off. 125 / desk 2' }[lang]
-    },
-    {
-      key:'so', icon:IC.so, color:'blue',
-      label: t('bachelors').so,
-      hint:{ kaz:'Профильді пән таңдаймыз', rus:'Выберем профильный предмет', eng:'Choose subject combination' }[lang]
     },
   ];
 
@@ -526,7 +538,7 @@ function renderSubject() {
         </svg>
       </div>
       <div class="si-body">
-        <div class="si-name">${s.key}</div>
+        <div class="si-name">${s.label[lang]}</div>
       </div>
       <div class="si-chevron">${IC.chev}</div>
     </div>`).join('');
@@ -708,7 +720,9 @@ function selectBachelorType(key) {
 
 function selectSubject(subjectKey) {
   S.subjectKey = subjectKey;
-  issueTicket(subjectKey, subjectKey);
+  const entry = SO_SUBJECTS.find(s => s.key === subjectKey);
+  const label = entry ? entry.label[lang] : subjectKey;
+  issueTicket(subjectKey, label);
 }
 
 function issueTicket(staffMarker, subjectLabel) {
